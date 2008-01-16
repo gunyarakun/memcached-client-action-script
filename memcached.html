@@ -1,0 +1,77 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MemcachedClient</title>
+<style>
+body {
+  background-color: #eeeeee;
+}
+</style>
+<script type="text/javascript" src="./json.js"></script>
+<script language="JavaScript">
+  // TODO: refactoring
+  var session_id = null;
+  var replys = new Array();
+  var recv_buf = '';
+
+  function thisMovie(movieName) {
+    if (navigator.appName.indexOf('Microsoft') != -1) {
+      return window[movieName];
+    } else {
+      return document[movieName];
+    }
+  }
+  function connect(host, port) {
+    var m = thisMovie('MemcachedClient');
+    m.connect(host, port, 'OnConnect', 'OnClose', 'OnGet', 'OnError');
+  }
+  function set(key, value) {
+    var socket = thisMovie("MemcachedClient");
+    m.set(key, value);
+  }
+  function get(key) {
+    var socket = thisMovie("MemcachedClient");
+    m.get(key);
+  }
+  function print(text) {
+    var output = document.getElementById("output");
+    output.value += text + '\n';
+    output.scrollTop = output.scrollHeight;
+  }
+  function OnConnect(){
+    print('connected');
+  }
+  function OnClose(){
+    print('connection closed');
+  }
+  function OnGet(key, value) {
+  }
+  function OnError(msg) {
+   print('socket error! ' + msg);
+  }
+</script>
+</head>
+<body>
+  <p>
+    <input type="button" value="接続" onClick="connect('localhost', 11211);">
+  </p>
+  <textarea style="width:80%;height:16em;background-color:#ddd;" id="output" name="output">
+  </textarea>
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"
+   id="MemcachedClient" width="1" height="1"
+   codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab">
+    <param name="movie" value="./MemcachedClient.swf" />
+    <param name="quality" value="high" />
+    <param name="bgcolor" value="#ffffff" />
+    <!--param name="allowScriptAccess" value="sameDomain" /-->
+    <param name="allowScriptAccess" value="always" />
+    <param name="allowNetworking" value="all" />
+    <embed src="./MemcachedClient.swf" quality="high" bgcolor="#ffffff"
+     width="1" height="1" name="MemcachedClient" align="middle"
+     play="true" loop="false" quality="high" allowScriptAccess="always"
+     allowNetworking="all" type="application/x-shockwave-flash"
+     pluginspage="http://www.macromedia.com/go/getflashplayer">
+    </embed>
+  </object>
+</body>
+</html>
