@@ -7,7 +7,6 @@ body {
   background-color: #eeeeee;
 }
 </style>
-<script type="text/javascript" src="./json.js"></script>
 <script language="JavaScript">
   // TODO: refactoring
   var session_id = null;
@@ -21,16 +20,16 @@ body {
       return document[movieName];
     }
   }
-  function connect(host, port) {
+   function connect(host, port) {
     var m = thisMovie('MemcachedClient');
     m.connect(host, port, 'OnConnect', 'OnClose', 'OnGet', 'OnError');
   }
   function set(key, value) {
-    var socket = thisMovie("MemcachedClient");
+    var m = thisMovie('MemcachedClient');
     m.set(key, value);
   }
   function get(key) {
-    var socket = thisMovie("MemcachedClient");
+    var m = thisMovie('MemcachedClient');
     m.get(key);
   }
   function print(text) {
@@ -47,7 +46,7 @@ body {
   function OnGet(key, value) {
   }
   function OnError(msg) {
-   print('socket error! ' + msg);
+    print('socket error! ' + msg);
   }
 </script>
 </head>
@@ -55,7 +54,12 @@ body {
   <p>
     <input type="button" value="接続" onClick="connect('localhost', 11211);">
   </p>
-  <textarea style="width:80%;height:16em;background-color:#ddd;" id="output" name="output">
+  <p>
+    <input type="text" id="set_key" size="16">
+    <input type="text" id="set_value" size="32">
+    <input type="button" value="set" onClick="set(document.getElementById('set_key').value, document.getElementById('set_value').value);">
+  </p>
+  <textarea style="width:80%;height:8em;background-color:#ddd;" id="output" name="output">
   </textarea>
   <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"
    id="MemcachedClient" width="1" height="1"
@@ -67,7 +71,7 @@ body {
     <param name="allowScriptAccess" value="always" />
     <param name="allowNetworking" value="all" />
     <embed src="./MemcachedClient.swf" quality="high" bgcolor="#ffffff"
-     width="1" height="1" name="MemcachedClient" align="middle"
+     width="200" height="100" name="MemcachedClient" align="middle"
      play="true" loop="false" quality="high" allowScriptAccess="always"
      allowNetworking="all" type="application/x-shockwave-flash"
      pluginspage="http://www.macromedia.com/go/getflashplayer">

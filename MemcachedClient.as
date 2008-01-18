@@ -1,6 +1,8 @@
-// Memcached client on ActionScript 3
+// Memcached client on ActionScript3
 // Tasuku SUENAGA a.k.a. gunyarakun(not gunyaraway)
 // BSD License or meshi-ogoru license
+
+// はらへった。
 
 package {
   import flash.display.*;
@@ -19,7 +21,6 @@ package {
 
     public function MemcachedClient() {
       make_label();
-      set_label('initialize instance');
       if (ExternalInterface.available) {
         try {
           Security.allowDomain('*');
@@ -58,7 +59,7 @@ package {
     }
     // set
     public function set(key:String, value:String, exptime:uint = 0, flags:uint = 0):void {
-      this.send_storage_cmd('set', key, flags, exptime, value);
+      send_storage_cmd('set', key, flags, exptime, value);
     }
     // get
     public function get(data:String):void {
@@ -69,27 +70,27 @@ package {
     // * for internal use */
     // FIXME: cas_unique:Number
     private function send_storage_cmd(command_name:String, key:String, flags:uint,
-                                      exptime:uint, bytes:String) {
-      var command = new Array(command_name, key, flags, exptime, bytes.length).join(' ');
+                                      exptime:uint, bytes:String):void {
+      var command:String = new Array(command_name, key, flags, exptime, bytes.length).join(' ');
       recv_mode = 'storage';
       send_line(command);
       send_line(bytes);
     }
 
-    private function send_retrieval_cmd(command_name:String, key:String) {
-      var command = new Array(command_name, key).join(' ');
+    private function send_retrieval_cmd(command_name:String, key:String):void {
+      var command:String = new Array(command_name, key).join(' ');
       recv_mode = 'retrieval';
       send_line(command);
     }
 
-    private function send_line(data:String) {
+    private function send_line(data:String):void {
       if (!socket || !socket.connected) return;
       socket.writeUTFBytes(data);
       socket.writeUTFBytes('\r\n');
       socket.flush();
     }
 
-    private function on_line(line) {
+    private function on_line(line:String):Boolean {
       switch(recv_mode) {
         case 'storage':
           switch(line) {
@@ -109,6 +110,7 @@ package {
         case 'stats':
           // TODO:
       }
+      return true;
     }
 
     // * event handlers *
@@ -123,9 +125,9 @@ package {
     // data event
     private function on_data(evt:Event):void {
       recv_buf += socket.readUTFBytes(socket.bytesAvailable);
-      var e;
+      var e:int;
       while ((e = recv_buf.indexOf('\n')) != -1) {
-        var line = recv_buf.substring(0, e);
+        var line:String = recv_buf.substring(0, e);
         if (on_line(line)) {
           recv_buf = recv_buf.substring(e + 1);
         }
@@ -147,9 +149,14 @@ package {
       label = new TextField();
       label.autoSize = TextFieldAutoSize.LEFT;
       label.selectable = true;
-      label.text = '';
       label.x = 0;
       label.y = 0;
+      var fm:TextFormat = new TextFormat();
+      fm.size = 12;
+      fm.color = 0x000000;
+      label.border = true;
+      label.width=300;
+      label.setTextFormat(fm);
       addChild(label);
     }
     private function set_label(text:String):void {
