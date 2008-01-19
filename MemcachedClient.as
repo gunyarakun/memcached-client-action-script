@@ -5,11 +5,12 @@
 // はらへった。
 
 package {
-  import flash.display.*;
-  import flash.net.*;
-  import flash.external.*;
+  import flash.display.Sprite
+  import flash.net.Socket
+  import flash.external.ExternalInterface
   import flash.events.*;
   import flash.system.*;
+  import flash.utils.ByteArray;
 
   public class MemcachedClient extends Sprite {
     private var socket:Socket;
@@ -56,6 +57,7 @@ package {
       socket.close();
     }
     // set
+    // TODO: prepend invalid key/value
     public function set(key:String, value:String, exptime:uint = 0,
                         flags:uint = 0):void {
       send_storage_cmd('set', key, flags, exptime, value);
@@ -67,9 +69,12 @@ package {
 
     // * for internal use */
     // FIXME: cas_unique:Number
-    public function send_storage_cmd(command_name:String, key:String, flags:uint,
-                                      exptime:uint, bytes:String):void {
-      var command:String = new Array(command_name, key, flags, exptime, bytes.length).join(' ');
+    public function send_storage_cmd(command_name:String, key:String,
+                                     flags:uint,
+                                     exptime:uint, bytes:String):void {
+      var b:ByteArray = new ByteArray();
+      b.writeUTFBytes(bytes);
+      var command:String = new Array(command_name, key, flags, exptime, b.length).join(' ');
       recv_info = {'command': command_name,
                    'key': key,
                    'flags': flags,
@@ -117,7 +122,9 @@ package {
           var value:String = '';
           var len:uint = 0;
           for (i = 1; i < lines.length; i++) {
-            len += lines[i].length + 2; // \r\n
+            var b:ByteArray  = new ByteArray();
+            b.writeUTFBytes(lines[i]);
+            len += b.length + 2; // \r\n
             value += lines[i] + '\r\n';
             if (len >= rh[3]) {
               break;
