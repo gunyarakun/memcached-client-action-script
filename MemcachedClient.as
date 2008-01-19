@@ -10,17 +10,15 @@ package {
   import flash.external.*;
   import flash.events.*;
   import flash.system.*;
-  import flash.text.*;
 
   public class MemcachedClient extends Sprite {
     private var socket:Socket;
-    private var js_on_connect:String, js_on_close:String, js_on_get:String, js_on_error:String;
-    private var label:TextField;
-    private var recv_mode:String;
+    private var js_on_connect:String, js_on_close:String,
+                js_on_response:String, js_on_error:String;
     private var recv_buf:String;
+    private var recv_info:Object;
 
     public function MemcachedClient() {
-      make_label();
       if (ExternalInterface.available) {
         try {
           Security.allowDomain('*');
@@ -29,9 +27,9 @@ package {
           ExternalInterface.addCallback('set', set);
           ExternalInterface.addCallback('get', get);
         } catch (e:SecurityError) {
-          set_label('security error: ' + e);
+          trace('security error: ' + e);
         } catch (e:Error) {
-          set_label('other error: ' + e);
+          trace('other error: ' + e);
         }
       }
       recv_buf = '';
@@ -40,11 +38,11 @@ package {
     // connect
     public function connect(host:String, port:int,
                             onconnect:String, onclose:String,
-                            onget:String, onerror:String):void {
+                            onresponse:String, onerror:String):void {
       socket = new Socket(host, port);
       js_on_connect = onconnect;
       js_on_close = onclose;
-      js_on_get = onget;
+      js_on_response = onresponse;
       js_on_error = onerror;
       socket.addEventListener(Event.CLOSE, on_close);
       socket.addEventListener(ProgressEvent.SOCKET_DATA, on_data);
@@ -58,109 +56,124 @@ package {
       socket.close();
     }
     // set
-    public function set(key:String, value:String, exptime:uint = 0, flags:uint = 0):void {
+    public function set(key:String, value:String, exptime:uint = 0,
+                        flags:uint = 0):void {
       send_storage_cmd('set', key, flags, exptime, value);
     }
     // get
-    public function get(data:String):void {
-      socket.writeUTFBytes(data);
-      socket.flush();
+    public function get(keys:Array):void {
+      send_retrieval_cmd('get', keys);
     }
 
     // * for internal use */
     // FIXME: cas_unique:Number
-    private function send_storage_cmd(command_name:String, key:String, flags:uint,
+    public function send_storage_cmd(command_name:String, key:String, flags:uint,
                                       exptime:uint, bytes:String):void {
       var command:String = new Array(command_name, key, flags, exptime, bytes.length).join(' ');
-      recv_mode = 'storage';
+      recv_info = {'command': command_name,
+                   'key': key,
+                   'flags': flags,
+                   'exptime': exptime,
+                   'bytes': bytes
+                  };
       send_line(command);
       send_line(bytes);
     }
 
-    private function send_retrieval_cmd(command_name:String, key:String):void {
-      var command:String = new Array(command_name, key).join(' ');
-      recv_mode = 'retrieval';
+    public function send_retrieval_cmd(command_name:String, keys:Array):void {
+      recv_info = {'command': command_name,
+                   'keys': keys
+                  };
+      var command:String = command_name + ' ' + keys.join(' ');
       send_line(command);
     }
 
-    private function send_line(data:String):void {
+    public function send_line(data:String):void {
       if (!socket || !socket.connected) return;
       socket.writeUTFBytes(data);
       socket.writeUTFBytes('\r\n');
       socket.flush();
     }
 
-    private function on_line(line:String):Boolean {
-      switch(recv_mode) {
-        case 'storage':
-          switch(line) {
-            case 'STORED':
-            case 'NOT_STORED':
-            case 'EXISTS':
-            case 'NOT_FOUND':
-            default:
-              set_label(line);
+    // return lines handled
+    // TODO: error handling
+    public function on_lines(lines:Array):uint {
+      if (lines.length < 2) { return 0; }
+      switch(recv_info.command) {
+        case 'set':
+          ExternalInterface.call(js_on_response, recv_info, lines[0]);
+          return 1;
+        case 'get':
+          if (lines[0] == 'END') {
+            return 1;
+          } else if (lines.length < 2) {
+            // not yet
+            return 0;
           }
-        case 'retrieval':
-          // TODO:
-        case 'deletion':
-          // TODO:
-        case 'inc/dec':
-          // TODO:
-        case 'stats':
-          // TODO:
+          var rh:Array = lines[0].split(' ');
+          // TODO: check rh[0] == 'VALUE'
+          // length check
+          var i:uint = 0;
+          var value:String = '';
+          var len:uint = 0;
+          for (i = 1; i < lines.length; i++) {
+            len += lines[i].length + 2; // \r\n
+            value += lines[i] + '\r\n';
+            if (len >= rh[3]) {
+              break;
+            }
+          }
+          if (len < rh[3]) {
+            return 0; // not received enough data
+          }
+          var ret:Object = {'key': rh[1],
+                            'flags': rh[2],
+                            'bytes': len,
+                            'value': value
+                           };
+          if (rh.length == 5) {
+            ret['cas_unique'] = rh[4];
+          }
+          ExternalInterface.call(js_on_response, recv_info, ret);
+          return i + 1;
       }
-      return true;
+      return 1;
     }
 
     // * event handlers *
     // connect event
-    private function on_connect(evt:Event):void {
+    public function on_connect(evt:Event):void {
       ExternalInterface.call(js_on_connect);
     }
     // close event
-    private function on_close(evt:Event):void {
+    public function on_close(evt:Event):void {
       ExternalInterface.call(js_on_close);
     }
     // data event
-    private function on_data(evt:Event):void {
+    public function on_data(evt:Event):void {
       recv_buf += socket.readUTFBytes(socket.bytesAvailable);
-      var e:int;
-      while ((e = recv_buf.indexOf('\n')) != -1) {
-        var line:String = recv_buf.substring(0, e);
-        if (on_line(line)) {
-          recv_buf = recv_buf.substring(e + 1);
+      var lines:Array = recv_buf.split('\r\n');
+      while (true) {
+        var c:uint = on_lines(lines);
+        if (c > 0) {
+          for (var i:uint = 0; i < c; i++) {
+            lines.shift();
+          }
+        } else {
+          recv_buf = lines.join('\r\n');
+          break;
         }
       }
     }
     // handle I/O error
-    private function on_io_error(evt:IOErrorEvent):void {
+    public function on_io_error(evt:IOErrorEvent):void {
       ExternalInterface.call(js_on_error, evt.text);
       // trace("I/O error !!! " + evt.text);
     }
     // handle security error
-    private function on_security_error(evt:SecurityErrorEvent):void {
+    public function on_security_error(evt:SecurityErrorEvent):void {
       ExternalInterface.call(js_on_error, evt.text);
       // trace("security error !!! " + evt.text);
-    }
-
-    // * show error message *
-    private function make_label():void {
-      label = new TextField();
-      label.autoSize = TextFieldAutoSize.LEFT;
-      label.selectable = true;
-      label.x = 0;
-      label.y = 0;
-      var fm:TextFormat = new TextFormat();
-      fm.size = 12;
-      fm.color = 0x000000;
-      label.border = true;
-      label.width=300;
-      label.setTextFormat(fm);
-      addChild(label);
-    }
-    private function set_label(text:String):void {
-      label.text = text;
     }
   }
 }
