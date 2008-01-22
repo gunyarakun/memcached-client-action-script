@@ -2,6 +2,7 @@
 // Tasuku SUENAGA a.k.a. gunyarakun(not gunyaraway)
 // BSD License or meshi-ogoru license
 
+// TODO: recv_bufをByteArary化
 // はらへった。
 
 package {
@@ -25,7 +26,7 @@ package {
           Security.allowDomain('*');
           ExternalInterface.addCallback('connect', connect);
           ExternalInterface.addCallback('close', close);
-          ExternalInterface.addCallback('set', set);
+          ExternalInterface.addCallback('set', js_set);
           ExternalInterface.addCallback('get', get);
         } catch (e:SecurityError) {
           trace('security error: ' + e);
@@ -56,13 +57,17 @@ package {
       if (!socket || !socket.connected) return;
       socket.close();
     }
-    // set
+    public function js_set(key:String, value:String,
+                           exptime:uint = 0, flags:uint = 0):void {
+      var vb:ByteArray = new ByteArray();
+      vb.writeUTFBytes(value);
+      set(key, vb, exptime, flags);
+    }
     // TODO: prepend invalid key/value
-    public function set(key:String, value:String, exptime:uint = 0,
+    public function set(key:String, value:ByteArray, exptime:uint = 0,
                         flags:uint = 0):void {
       send_storage_cmd('set', key, flags, exptime, value);
     }
-    // get
     public function get(keys:Array):void {
       send_retrieval_cmd('get', keys);
     }
@@ -71,18 +76,16 @@ package {
     // FIXME: cas_unique:Number
     public function send_storage_cmd(command_name:String, key:String,
                                      flags:uint,
-                                     exptime:uint, bytes:String):void {
-      var b:ByteArray = new ByteArray();
-      b.writeUTFBytes(bytes);
-      var command:String = new Array(command_name, key, flags, exptime, b.length).join(' ');
+                                     exptime:uint, bytes:ByteArray):void {
+      var command:String = new Array(command_name, key, flags, exptime, bytes.length).join(' ');
       recv_info = {'command': command_name,
                    'key': key,
                    'flags': flags,
                    'exptime': exptime,
                    'bytes': bytes
                   };
-      send_line(command);
-      send_line(bytes);
+      send_line_str(command);
+      send_line_bytes(bytes);
     }
 
     public function send_retrieval_cmd(command_name:String, keys:Array):void {
@@ -90,17 +93,24 @@ package {
                    'keys': keys
                   };
       var command:String = command_name + ' ' + keys.join(' ');
-      send_line(command);
+      send_line_str(command);
     }
 
-    public function send_line(data:String):void {
+    public function send_line_str(data:String):void {
       if (!socket || !socket.connected) return;
       socket.writeUTFBytes(data);
       socket.writeUTFBytes('\r\n');
       socket.flush();
     }
 
-    // return lines handled
+    public function send_line_bytes(data:ByteArray):void {
+      if (!socket || !socket.connected) return;
+      socket.writeBytes(data);
+      socket.writeUTFBytes('\r\n');
+      socket.flush();
+    }
+
+    // returns handled lines
     // TODO: error handling
     public function on_lines(lines:Array):uint {
       if (lines.length < 2) { return 0; }
