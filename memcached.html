@@ -1,0 +1,100 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MemcachedClient</title>
+<style>
+body {
+  background-color: #eeeeee;
+}
+</style>
+<script language="JavaScript">
+  // TODO: refactoring
+  var session_id = null;
+  var replys = new Array();
+  var recv_buf = '';
+
+  function thisMovie(movieName) {
+    if (navigator.appName.indexOf('Microsoft') != -1) {
+      return window[movieName];
+    } else {
+      return document[movieName];
+    }
+  }
+   function connect(host, port) {
+    var m = thisMovie('MemcachedClient');
+    m.connect(host, port, 'OnConnect', 'OnClose', 'OnResponse', 'OnError');
+  }
+  function set(key, value) {
+    var m = thisMovie('MemcachedClient');
+    m.set(key, value);
+  }
+  function get(keys) {
+    var m = thisMovie('MemcachedClient');
+    m.get(keys);
+  }
+  function print(text) {
+    var output = document.getElementById('output');
+    output.value += text + '\n';
+    output.scrollTop = output.scrollHeight;
+  }
+  function OnConnect(){
+    print('connected');
+  }
+  function OnClose(){
+    print('connection closed');
+  }
+  function OnResponse(req, resp) {
+    switch (req.command) {
+      case 'set':
+        print('set key: ' + req.key + ' ' + resp);
+        break;
+      case 'get':
+        document.getElementById('get_value').value = resp.value;
+        print('get key:' + resp.key)
+        break;
+    }
+  }
+  function OnError(msg) {
+    print('socket error! ' + msg);
+  }
+</script>
+</head>
+<body>
+  <p>
+    connect:
+    <input type="button" value="接続" onClick="connect('localhost', 11211);">
+  </p>
+  <p>
+    set:
+    <input type="text" id="set_key" size="16">
+    <textarea style="width:16em;height:4em;background-color:#ddd;" id="set_value"></textarea>
+    <input type="button" value="set" onClick="set(document.getElementById('set_key').value, document.getElementById('set_value').value);">
+  </p>
+  <p>
+    get:
+    <input type="text" id="get_key" size="16">
+    <textarea style="width:16em;height:4em;background-color:#ddd;" id="get_value"></textarea>
+    <input type="button" value="get" onClick="get(document.getElementById('set_key').value.split(' '));">
+  </p>
+  <p>
+    message:
+    <textarea style="width:24em;height:8em;background-color:#ddd;" id="output" name="output"></textarea>
+  </p>
+  <object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"
+   id="MemcachedClient" width="1" height="1"
+   codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab">
+    <param name="movie" value="./MemcachedClient.swf" />
+    <param name="quality" value="high" />
+    <param name="bgcolor" value="#ffffff" />
+    <!--param name="allowScriptAccess" value="sameDomain" /-->
+    <param name="allowScriptAccess" value="always" />
+    <param name="allowNetworking" value="all" />
+    <embed src="./MemcachedClient.swf" quality="high" bgcolor="#ffffff"
+     width="200" height="100" name="MemcachedClient" align="middle"
+     play="true" loop="false" quality="high" allowScriptAccess="always"
+     allowNetworking="all" type="application/x-shockwave-flash"
+     pluginspage="http://www.macromedia.com/go/getflashplayer">
+    </embed>
+  </object>
+</body>
+</html>
